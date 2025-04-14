@@ -28,6 +28,10 @@ class CharactersViewModel(
         requestCharacters()
     }
 
+    fun handleClick(id: Long) {
+
+    }
+
     private fun requestCharacters() {
         viewModelScope.launch {
             repository.getAllCharacters()
@@ -45,6 +49,12 @@ class CharactersViewModel(
                         isError = true,
                     )
                 }
+        }
+    }
+
+    private fun requestCharactersWithFlow() {
+        viewModelScope.launch {
+            // Сделай запрос с использованем Flow
         }
     }
 }

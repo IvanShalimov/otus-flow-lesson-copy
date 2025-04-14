@@ -6,16 +6,19 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle.State
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import ru.otus.flow.databinding.FragmentCharactersBinding
 import ru.otus.flow.di.InjectorProvider
 import ru.otus.flow.presentation.CharactersAdapter
 import ru.otus.flow.presentation.CharactersState
+import androidx.lifecycle.Lifecycle.State
+import ru.otus.flow.presentation.models.UiEvent
+
 
 class FinishCharactersFragment : Fragment() {
 
@@ -30,7 +33,9 @@ class FinishCharactersFragment : Fragment() {
         }
     )
 
-    private val adapter = CharactersAdapter()
+    private val adapter = CharactersAdapter {
+        viewModel.handleClick(it)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,6 +57,7 @@ class FinishCharactersFragment : Fragment() {
         binding.uiSwipeRefreshLayout.setOnRefreshListener {
             viewModel.refresh()
         }
+
     }
 
     override fun onDestroyView() {
@@ -74,6 +80,16 @@ class FinishCharactersFragment : Fragment() {
                         }
                     }
                 }
+
+
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(State.STARTED) {
+                viewModel.dialogEvents.collect { itemInfo ->
+                    // Показываем диалог с полученной информацией
+                    showInfoDialog(itemInfo)
+                }
             }
         }
     }
@@ -90,5 +106,13 @@ class FinishCharactersFragment : Fragment() {
         binding.uiProgressBar.visibility = View.GONE
         binding.uiMessage.visibility = View.GONE
         binding.uiSwipeRefreshLayout.isRefreshing = false
+    }
+
+    private fun showInfoDialog(message: String) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Информация")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 }

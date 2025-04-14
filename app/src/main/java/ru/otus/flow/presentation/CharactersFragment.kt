@@ -24,7 +24,9 @@ class CharactersFragment : Fragment() {
         }
     )
 
-    private val adapter = CharactersAdapter()
+    private val adapter = CharactersAdapter {
+        // Здесь надо добавить обработчик
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,

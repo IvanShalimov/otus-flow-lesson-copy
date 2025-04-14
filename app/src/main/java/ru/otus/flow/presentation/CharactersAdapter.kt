@@ -7,7 +7,9 @@ import androidx.recyclerview.widget.ListAdapter
 import ru.otus.flow.databinding.ItemGalleryBinding
 import ru.otus.flow.domain.RaMCharacter
 
-class CharactersAdapter : ListAdapter<RaMCharacter, CharactersViewHolder>(DiffCallback()) {
+class CharactersAdapter(
+    private val onItemClick: (Long) -> Unit
+) : ListAdapter<RaMCharacter, CharactersViewHolder>(DiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CharactersViewHolder {
         return CharactersViewHolder(
@@ -20,7 +22,7 @@ class CharactersAdapter : ListAdapter<RaMCharacter, CharactersViewHolder>(DiffCa
     override fun onBindViewHolder(holder: CharactersViewHolder, position: Int) {
         val entity = getItem(position)
         entity?.let {
-            holder.bind(entity)
+            holder.bind(entity, onItemClick)
         }
     }
 }
