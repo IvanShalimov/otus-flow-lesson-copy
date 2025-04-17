@@ -7,6 +7,7 @@ import kotlinx.coroutines.channels.Channel.Factory.RENDEZVOUS
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.consume
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.delay
@@ -17,9 +18,11 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flatMapLatest
@@ -114,6 +117,28 @@ class FlowPractice {
                     println("$animal received")
                 }
             }
+        }
+    }
+
+    @Test
+    fun channel_consume() {
+        runBlocking {
+            val channel = produce {
+                send(Cat)
+                send(Dog)
+                send(Fish)
+            }
+
+            val result = channel.consume {
+                var count = 0
+                for (item in this) {  // 'this' - ссылка на канал
+                    println("Processing: $item")
+                    count++
+                }
+                count  // Возвращаем результат
+            }
+            println("Processed $result items")
+        // Канал автоматически закрыт
         }
     }
 
@@ -225,6 +250,9 @@ class FlowPractice {
 
             println("3)")
             Animal.values().asFlow().collect { animal -> println("$animal received") }
+
+            println("4)")
+            emptyFlow<Animal>().collect { animal -> println("$animal received")  }
         }
     }
 
@@ -247,6 +275,168 @@ class FlowPractice {
                 }
                 .onEach {  part -> println("$part received onEach") }
                 .collect { part -> println("$part received in collect") }
+        }
+    }
+
+    @Test
+    fun flow_collect_collectLatest_compare() {
+        runBlocking {
+            println("collect")
+            flow {
+                emit(1)
+                delay(50)
+                emit(2)
+            }.collect { value ->
+                delay(100) // Имитация долгой обработки
+                println(value) // Выведет 1 и 2
+            }
+            println("collectLatest")
+            flow {
+                emit(1)
+                delay(50)
+                emit(2)
+            }.collectLatest { value ->
+                delay(100) // Имитация долгой обработки
+                println(value) // Выведет только 2 (обработка 1 отменена)
+            }
+        }
+    }
+
+    private fun flowOfNumbers(n: Int, delay: Long = 0L, withLog: Boolean = false) = flow {
+        for (i in 1..n) {
+            delay(delay)
+            if (withLog) println("  Before emit $i")
+            emit(i)
+            if (withLog) println("  After emit $i")
+        }
+    }
+
+    private fun flowOfAnimals(delay: Long = 0L, withLog: Boolean = false) = flow {
+        delay(delay)
+        if (withLog) println("  Before emit Cat")
+        emit(Cat)
+        if (withLog) println("  After emit Cat")
+        delay(delay)
+        if (withLog) println("  Before emit Dog")
+        emit(Dog)
+        if (withLog) println("  After emit Dog")
+        delay(delay)
+        if (withLog) println("  Before emit Fish")
+        emit(Fish)
+        if (withLog) println("  After emit Fish")
+        delay(delay)
+        if (withLog) println("  Before emit Bird")
+        emit(Bird)
+        if (withLog) println("  After emit Bird")
+    }
+
+    @Test
+    fun flow_flatMap() {
+        runBlocking {
+            val flow1 = flowOfNumbers(n = 3, delay = 30L)
+            val flow2 = flowOfAnimals(delay = 20L)
+
+            println("\nflatMapConcat")
+            flow1
+                .flatMapConcat { index ->
+                    flow2.map { animal -> "$index-$animal" }
+                }
+                .collect { println("    -> $it received") }
+
+            println("\nflatMapMerge")
+            flow1
+                .flatMapMerge { index ->
+                    flow2.map { animal -> "$index-$animal" }
+                }
+                .collect { println("$it received") }
+
+            println("\nflatMapLatest")
+            flow1
+                .flatMapLatest { index ->
+                    flow2.map { animal -> "$index-$animal" }
+                }
+                .collect { println("$it received") }
+        }
+    }
+
+
+    /*
+* Loading...  // Для "AB"
+* ["AB-result-1", "AB-result-2"]
+* Loading...  // Для "ABC"
+* ["ABC-result-1", "ABC-result-2"]
+* Loading...  // Для "B" (проигнорирован, длина < 2)
+* Loading...  // Для "C" (проигнорирован)
+* */
+    @Test
+    fun flow_trasformLatest() {
+        runBlocking {
+            val searchQueryFlow = flowOf("A", "AB", "B", "C","ABC")
+
+            searchQueryFlow
+                .transformLatest { query ->
+                    if (query.length >= 2) {  // Фильтрация прямо в transformLatest
+                        emit("Loading...")
+                        search(query).collect { results ->
+                            emit(results)
+                        }
+                    }
+                }
+                .collect { println(it) }
+        }
+    }
+
+
+    @Test
+    fun flow_combining() {
+        runBlocking {
+            val flow1 = flowOfNumbers(n = 3, delay = 10L)
+            val flow2 = flowOfAnimals(delay = 50L)
+
+            println("Zip")
+            flow1.zip(flow2) { index, animal ->
+                "$index-$animal"
+            }
+                .collect { zipped ->
+                    println("$zipped collected")
+                }
+
+            println("combine")
+            combine(
+                flow1,
+                flow2
+            ) { index, animal ->
+                "$index-$animal"
+            }
+                .collect { combined ->
+                    println("$combined collected")
+                }
+
+            println("merge")
+            merge(
+                flow1,
+                flow2
+            )
+                .collect { merged ->
+                    println("$merged collected")
+                }
+        }
+    }
+
+    @Test
+    fun flow_with_buffer() {
+        runBlocking {
+            val flow = flowOfAnimals(delay = 90L, withLog = false)
+
+            val time = measureTimeMillis {
+                flow
+                    .buffer()// как каналы через capacity
+                    .collect { animal ->
+                        delay(100L)
+                        println("$animal collected")
+                    }
+            }
+            println("Took $time millis")
         }
     }
 
@@ -352,10 +542,13 @@ class FlowPractice {
 
     @Test
     fun flow_retry_operator() {
+        var count = 0
         runBlocking {
             val retryFlow = flow {
-                emit(1)
+                count++
+                // if(count < 2)
                 throw IllegalArgumentException()
+                emit(1)
             }.retry(3)
 
             retryFlow.collect { println(it) }
@@ -404,89 +597,6 @@ class FlowPractice {
         }
     }
 
-    private fun flowOfNumbers(n: Int, delay: Long = 0L, withLog: Boolean = false) = flow {
-        for (i in 1..n) {
-            delay(delay)
-            if (withLog) println("  Before emit $i")
-            emit(i)
-            if (withLog) println("  After emit $i")
-        }
-    }
-
-    private fun flowOfAnimals(delay: Long = 0L, withLog: Boolean = false) = flow {
-        delay(delay)
-        if (withLog) println("  Before emit Cat")
-        emit(Cat)
-        if (withLog) println("  After emit Cat")
-        delay(delay)
-        if (withLog) println("  Before emit Dog")
-        emit(Dog)
-        if (withLog) println("  After emit Dog")
-        delay(delay)
-        if (withLog) println("  Before emit Fish")
-        emit(Fish)
-        if (withLog) println("  After emit Fish")
-        delay(delay)
-        if (withLog) println("  Before emit Bird")
-        emit(Bird)
-        if (withLog) println("  After emit Bird")
-    }
-
-    @Test
-    fun flow_flatMap() {
-        runBlocking {
-            val flow1 = flowOfNumbers(n = 3, delay = 30L)
-            val flow2 = flowOfAnimals(delay = 20L)
-
-            println("\nflatMapConcat")
-            flow1
-                .flatMapConcat { index ->
-                    flow2.map { animal -> "$index-$animal" }
-                }
-                .collect { println("    -> $it received") }
-
-            println("\nflatMapMerge")
-            flow1
-                .flatMapMerge { index ->
-                    flow2.map { animal -> "$index-$animal" }
-                }
-                .collect { println("$it received") }
-
-            println("\nflatMapLatest")
-            flow1
-                .flatMapLatest { index ->
-                    flow2.map { animal -> "$index-$animal" }
-                }
-                .collect { println("$it received") }
-        }
-    }
-
-    /*
-    * Loading...  // Для "AB"
-    * ["AB-result-1", "AB-result-2"]
-    * Loading...  // Для "ABC"
-    * ["ABC-result-1", "ABC-result-2"]
-    * Loading...  // Для "B" (проигнорирован, длина < 2)
-    * Loading...  // Для "C" (проигнорирован)
-    * */
-    @Test
-    fun flow_trasformLatest() {
-        runBlocking {
-            val searchQueryFlow = flowOf("A", "AB", "B", "C","ABC")
-
-            searchQueryFlow
-                .transformLatest { query ->
-                    if (query.length >= 2) {  // Фильтрация прямо в transformLatest
-                        emit("Loading...")
-                        search(query).collect { results ->
-                            emit(results)
-                        }
-                    }
-                }
-                .collect { println(it) }
-        }
-    }
-
     private fun search(query: String): Flow<List<String>> = flow {
         //delay(500) // Имитация API-запроса
         emit(listOf("$query-result-1", "$query-result-2"))
@@ -518,7 +628,6 @@ class FlowPractice {
         runBlocking {
             val startTime = System.currentTimeMillis()
 
-            flowOfNumbers(n = 10, delay = 100)
             flowOfNumbers(n = 10, delay = 100)
                 .onEach { println("[${System.currentTimeMillis() - startTime}ms] Emitted: $it") }
                 .throttleFirst(300) // Пропускаем не чаще чем раз в 300мс
@@ -559,59 +668,6 @@ class FlowPractice {
                 lastTime = currentTime
                 send(value)
             }
-        }
-    }
-
-    @Test
-    fun flow_combining() {
-        runBlocking {
-            val flow1 = flowOfNumbers(n = 3, delay = 10L)
-            val flow2 = flowOfAnimals(delay = 50L)
-
-            println("Zip")
-            flow1.zip(flow2) { index, animal ->
-                "$index-$animal"
-            }
-                .collect { zipped ->
-                    println("$zipped collected")
-                }
-
-            println("combine")
-            combine(
-                flow1,
-                flow2
-            ) { index, animal ->
-                "$index-$animal"
-            }
-                .collect { combined ->
-                    println("$combined collected")
-                }
-
-            println("merge")
-            merge(
-                flow1,
-                flow2
-            )
-                .collect { merged ->
-                    println("$merged collected")
-                }
-        }
-    }
-
-    @Test
-    fun flow_with_buffer() {
-        runBlocking {
-            val flow = flowOfAnimals(delay = 90L, withLog = true)
-
-            val time = measureTimeMillis {
-                flow
-                    .buffer()
-                    .collect { animal ->
-                        delay(100L)
-                        println("$animal collected")
-                    }
-            }
-            println("Took $time millis")
         }
     }
 
@@ -710,7 +766,6 @@ class FlowPractice {
         }
     }
 
-
     @Test
     fun sharedFlow_onSubscription() {
         runBlocking {
@@ -763,8 +818,9 @@ class FlowPractice {
                 }
             }
 
+
             delay(1000)
-            println("${flow.value} checked")
+            println("${flow.value} checked")//flow.emit(Bird)
 
             delay(1000)
             job1.cancel()

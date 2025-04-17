@@ -7,6 +7,7 @@ import kotlinx.coroutines.channels.Channel.Factory.RENDEZVOUS
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.consume
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.delay
@@ -85,6 +86,13 @@ class FlowPractice {
 
     @Test
     fun channel_produce() {
+        runBlocking {
+
+        }
+    }
+
+    @Test
+    fun channel_consume() {
         runBlocking {
 
         }
