@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.catch
 import ru.otus.flow.domain.CharactersRepository
 import kotlinx.coroutines.launch
 
@@ -29,7 +30,18 @@ class CharactersViewModel(
     }
 
     fun handleClick(id: Long) {
-
+        viewModelScope.launch {
+            repository.getCharacterById(id)
+                .catch { e ->
+                    _state.value = _state.value.copy(isError = true)
+                }
+                .collect { character ->
+                    _state.value = _state.value.copy(
+                        showDialog = true,
+                        dialogMessage = character.name
+                    )
+                }
+        }
     }
 
     private fun requestCharacters() {
@@ -56,5 +68,12 @@ class CharactersViewModel(
         viewModelScope.launch {
             // Сделай запрос с использованем Flow
         }
+    }
+
+    fun dialogDismoss() {
+        _state.value = _state.value.copy(
+            showDialog = false,
+            dialogMessage = ""
+        )
     }
 }

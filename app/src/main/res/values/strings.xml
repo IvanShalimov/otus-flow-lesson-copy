@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">OtusAndroidFlow</string>
     <string name="message_empty_string">List is empty</string>
+    <string name="error_message">Error</string>
+    <string name="info_title">info_title</string>
+    <string name="ok">oke</string>
 </resources>
