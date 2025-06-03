@@ -19,6 +19,7 @@ import androidx.compose.material.SnackbarHost
 import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
+import androidx.compose.material.TextField
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -34,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.otus.flow.R
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import ru.otus.flow.domain.RaMCharacter
 
 @Composable
@@ -41,11 +45,18 @@ fun FinishCharactersScreen(
     state: State<CharactersState>,
     onRefresh: () -> Unit,
     onItemClick: (Long) -> Unit,
-    onDialogDismiss: () -> Unit
+    onDialogDismiss: () -> Unit,
+    onSearchQueryChanged: (String) -> Unit // Новый параметр для обработки поиска
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf("") } // Состояние для поискового запроса
+
+    // Обработка изменений поискового запроса с debounce
+    LaunchedEffect(searchQuery) {
+        onSearchQueryChanged(searchQuery)
+    }
 
     LaunchedEffect(state.value.isError) {
         if (state.value.isError) {
@@ -66,17 +77,30 @@ fun FinishCharactersScreen(
                 .padding(padding),
             color = MaterialTheme.colors.background
         ) {
-            CharactersContent(
-                state = state.value,
-                onRefresh = { onRefresh.invoke() },
-                onItemClick = { id -> onItemClick.invoke(id) }
-            )
-
-            if (state.value.showDialog) {
-                InfoDialog(
-                    message = state.value.dialogMessage,
-                    onDismiss = { onDialogDismiss.invoke() }
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Добавляем поле поиска
+                TextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    label = { Text("Search characters") },
+                    singleLine = true
                 )
+
+                CharactersContent(
+                    state = state.value,
+                    onRefresh = { onRefresh() },
+                    onItemClick = { id -> onItemClick(id) }
+                )
+
+                if (state.value.showDialog) {
+                    InfoDialog(
+                        message = state.value.dialogMessage,
+                        onDismiss = { onDialogDismiss() }
+                    )
+                }
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
 import ru.otus.flow.domain.CharactersRepository
 import kotlinx.coroutines.launch
 
@@ -75,5 +76,22 @@ class CharactersViewModel(
             showDialog = false,
             dialogMessage = ""
         )
+    }
+
+    fun search(query: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true)
+            repository.searchCharacters(query)
+                .catch { e ->
+                    _state.value = _state.value.copy(isError = true, isLoading = false)
+                }
+                .collect { characters ->
+                    _state.value = _state.value.copy(
+                        items = characters,
+                        isLoading = false,
+                        isError = false
+                    )
+                }
+        }
     }
 }

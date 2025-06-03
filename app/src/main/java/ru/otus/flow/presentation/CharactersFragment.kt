@@ -15,6 +15,7 @@ import androidx.fragment.app.viewModels
 import ru.otus.flow.databinding.FragmentCharactersBinding
 import ru.otus.flow.di.InjectorProvider
 
+@Suppress("UNCHECKED_CAST")
 class CharactersFragment : Fragment() {
 
     private val viewModel: CharactersViewModel by viewModels(
@@ -36,7 +37,8 @@ class CharactersFragment : Fragment() {
                     state = viewModel.state.observeAsState() as State<CharactersState>,
                     onRefresh = { viewModel.refresh() },
                     onItemClick = { viewModel.handleClick(it)},
-                    onDialogDismiss = {viewModel.dialogDismoss()}
+                    onDialogDismiss = {viewModel.dialogDismoss()},
+                    onSearchQueryChanged = { query -> viewModel.search(query) }
                 )
             }
         }

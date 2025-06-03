@@ -2,10 +2,19 @@ package ru.otus.flow.presentation.finish
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.flow.update
 import ru.otus.flow.domain.CharactersRepository
 import kotlinx.coroutines.launch
@@ -102,12 +111,80 @@ class FinishCharactersViewModel(
         }
     }
 
-    fun dialogDismoss() {
+    fun dialogDismiss() {
         _state.update {
             it.copy(
                 showDialog = false,
                 dialogMessage = ""
             )
+        }
+    }
+
+    // Добавляем новые методы с различными Flow операторами
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+    fun getCharactersWithDebounce(query: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            repository.searchCharacters(query)
+                .catch { e ->
+                    _state.update { state ->
+                        state.copy(isError = true, isLoading = false)
+                    }
+                }
+                .collect { characters ->
+                    _state.update {
+                        it.copy(
+                            items = characters,
+                            isLoading = false,
+                            isError = false
+                        )
+                    }
+                }
+        }
+    }
+
+    fun getCharactersWithCombine() {
+        viewModelScope.launch {
+            // Комбинируем несколько потоков данных
+            combine(
+                repository.getAllCharactersByFlow(),
+                repository.getFavoriteCharactersFlow()
+            ) { allCharacters, favorites ->
+                allCharacters.map { character ->
+                    character.copy(isFavorite = favorites.any { it.id == character.id })
+                }
+            }
+                .collect { characters ->
+                    _state.update {
+                        it.copy(
+                            items = characters,
+                            isLoading = false
+                        )
+                    }
+                }
+        }
+    }
+
+    fun getCharactersWithRetry() {
+        viewModelScope.launch {
+            repository.getAllCharactersWithRetry()
+                .retry(3) { cause ->
+                    // Повторяем запрос до 3 раз при ошибках
+                    if (cause is java.net.UnknownHostException) {
+                        delay(1000)
+                        true
+                    } else {
+                        false
+                    }
+                }
+                .collect { characters ->
+                    _state.update {
+                        it.copy(
+                            items = characters,
+                            isLoading = false
+                        )
+                    }
+                }
         }
     }
 }
