@@ -203,6 +203,20 @@ class FlowPractice {
         }
     }
 
+    @Test
+    fun flow_chunked() {
+        runBlocking {
+
+        }
+    }
+
+    @Test
+    fun flow_transformWhile() {
+        runBlocking {
+
+        }
+    }
+
     private fun flowOfNumbers(n: Int, delay: Long = 0L, withLog: Boolean = false) = flow {
         for (i in 1..n) {
             delay(delay)

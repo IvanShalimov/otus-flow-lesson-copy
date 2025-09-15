@@ -1,5 +1,6 @@
 package ru.otus.flow.finish
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
@@ -18,6 +19,8 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.chunked
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -40,6 +43,7 @@ import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -594,6 +598,32 @@ class FlowPractice {
             }
                 .distinctUntilChangedBy { it.type } // Сравниваем только поле type
                 .collect { println(it) }
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun flow_chunked() {
+        runBlocking {
+            val flow = (1..10).asFlow()
+
+            flow.chunked(3).collect { chunk ->
+                println("Batch: $chunk")
+            }
+        }
+    }
+
+    @Test
+    fun flow_transformWhile() {
+        runBlocking {
+            val numbers = (1..10).asFlow()
+
+            numbers.transformWhile { value ->
+                emit(value)
+                value < 5 // прекратит после 5
+            }.collect {
+                println(it)
+            }
         }
     }
 
